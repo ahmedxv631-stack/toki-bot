@@ -1,17 +1,20 @@
 export default {
   async fetch(request, env) {
-    const TARGET_HOST = "http://45.89.126.222:25583";
+    // استبدل الـ IP ده بدومين السيرفر الفعلي لو متاح (مثل: proxy.yourdomain.com)
+    // لو هتستخدم IP مباشر، تأكد إن السيرفر بيقبل الاتصال من Cloudflare
+    const TARGET_HOST = "45.89.126.222:25583"; 
     const incomingUrl = new URL(request.url);
 
-    // نبني الرابط الجديد مع الحفاظ على المسار والـ query
+    // بناء الرابط المستهدف
     const targetUrl = new URL(
       incomingUrl.pathname + incomingUrl.search,
-      TARGET_HOST
+      `http://${TARGET_HOST}`
     );
 
     try {
       const newHeaders = new Headers();
 
+      // نقل الـ headers الأساسية بأمان
       const allowedHeaders = [
         "user-agent",
         "accept",
@@ -27,8 +30,8 @@ export default {
         if (val) newHeaders.set(h, val);
       });
 
-      // الـ Host للسيرفر الجديد
-      newHeaders.set("host", "45.89.126.222:25583");
+      // ضبط الـ Host header ليطابق السيرفر المستهدف لمنع خطأ 1003
+      newHeaders.set("host", TARGET_HOST);
 
       if (!newHeaders.has("user-agent")) {
         newHeaders.set(
@@ -38,11 +41,11 @@ export default {
       }
 
       let body = null;
-
       if (["POST", "PUT", "PATCH"].includes(request.method)) {
         body = await request.arrayBuffer();
       }
 
+      // تنفيذ الطلب للسيرفر الخارجي مع تعطيل الـ redirect التلقائي للتحكم فيه
       const response = await fetch(targetUrl.toString(), {
         method: request.method,
         headers: newHeaders,
@@ -50,13 +53,11 @@ export default {
         redirect: "manual",
       });
 
-      // معالجة الـ Redirect
+      // معالجة الـ Redirects لو حصلت
       if (response.status >= 300 && response.status < 400) {
         const location = response.headers.get("location");
-
         if (location) {
-          const redirectUrl = new URL(location, TARGET_HOST);
-
+          const redirectUrl = new URL(location, `http://${TARGET_HOST}`);
           const fixedHeaders = new Headers(response.headers);
 
           fixedHeaders.set(
@@ -65,7 +66,6 @@ export default {
               redirectUrl.pathname +
               redirectUrl.search
           );
-
           fixedHeaders.set("Access-Control-Allow-Origin", "*");
 
           return new Response(null, {
@@ -76,10 +76,9 @@ export default {
       }
 
       const finalHeaders = new Headers(response.headers);
-
       finalHeaders.set("Access-Control-Allow-Origin", "*");
 
-      // إزالة Headers ممكن تسبب مشاكل مع البروكسي
+      // إزالة الـ headers اللي ممكن تسبب تعارض مع Cloudflare
       finalHeaders.delete("content-security-policy");
       finalHeaders.delete("content-encoding");
 

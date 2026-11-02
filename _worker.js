@@ -1,7 +1,8 @@
 export default {
   async fetch(request, env) {
-    const TARGET_HOST = "https://45.89.126.222:25583";
+    const TARGET_HOST = "http://45.89.126.222:25583";
     const incomingUrl = new URL(request.url);
+    const targetUrlObj = new URL(TARGET_HOST);
 
     // نبني الرابط الجديد مع الحفاظ على المسار والـ query
     const targetUrl = new URL(
@@ -26,8 +27,8 @@ export default {
         if (val) newHeaders.set(h, val);
       });
 
-      // نخلي الـ Host يطابق السيرفر الأصلي
-      newHeaders.set("host", "toby.hidencloud.com");
+      // **الحل هنا:** نخليه ياخد الهوست بتاع السيرفر المستهدف أوتوماتيكياً (أو الدومين الصحيح بتاعه)
+      newHeaders.set("host", targetUrlObj.host);
 
       if (!newHeaders.has("user-agent")) {
         newHeaders.set(
@@ -45,10 +46,9 @@ export default {
         method: request.method,
         headers: newHeaders,
         body: body,
-        redirect: "manual", // مهم عشان redirects تفضل على دومينك
+        redirect: "manual",
       });
 
-      // لو السيرفر عمل redirect، نرجعه للمستخدم على الدومين الجديد
       if (response.status >= 300 && response.status < 400) {
         const location = response.headers.get("location");
         if (location) {
@@ -68,7 +68,6 @@ export default {
 
       const finalHeaders = new Headers(response.headers);
       finalHeaders.set("Access-Control-Allow-Origin", "*");
-      // شيل أي headers بتكسر الدومين الجديد
       finalHeaders.delete("content-security-policy");
       finalHeaders.delete("content-encoding");
 

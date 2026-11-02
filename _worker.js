@@ -1,6 +1,6 @@
 export default {
   async fetch(request, env) {
-    const TARGET_HOST = "http://45.89.126.222:25583";
+    const TARGET_HOST = "https://45.89.126.222:25583";
     const incomingUrl = new URL(request.url);
 
     // نبني الرابط الجديد مع الحفاظ على المسار والـ query
